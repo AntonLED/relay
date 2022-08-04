@@ -1,0 +1,103 @@
+include "global.tbh"
+
+
+function modbus_callback_WriteSingleCoil(addr as word, value as low_high) as boolean
+	select case addr
+		case LN1_ADDR:
+			io.num=TBT00_1_S3_L1NAME
+			io.enabled=YES
+			io.state=value
+			stor.setdata(str(value), LN1_E_ADDR)
+			modbus_callback_WriteSingleCoil=true
+			
+		case LN2_ADDR:
+			io.num=TBT00_1_S3_L2NAME
+			io.enabled=YES
+			io.state=value
+			stor.setdata(str(value), LN2_E_ADDR)
+			modbus_callback_WriteSingleCoil=true	
+			
+		case LN3_ADDR:
+			io.num=TBT00_1_S3_L3NAME
+			io.enabled=YES
+			io.state=value
+			stor.setdata(str(value), LN3_E_ADDR)
+			modbus_callback_WriteSingleCoil=true
+			
+		case LN4_ADDR:
+			io.num=TBT00_1_S3_L4NAME
+			io.enabled=YES
+			io.state=value
+			stor.setdata(str(value), LN4_E_ADDR)
+			modbus_callback_WriteSingleCoil=true
+			
+		case LN1_LN2_ADDR:
+			io.num=TBT00_1_S3_L1NAME
+			io.enabled=YES
+			io.state=value
+			stor.setdata(str(value), LN1_E_ADDR)
+			io.num=TBT00_1_S3_L2NAME
+			io.enabled=YES
+			io.state=value
+			stor.setdata(str(value), LN2_E_ADDR)
+			modbus_callback_WriteSingleCoil=true
+
+		case else:
+			modbus_callback_WriteSingleCoil = false
+	end select
+end function
+
+function modbus_callback_ReadCoilStatus(addr as word) as byte
+	select case addr
+		case LN1_STATE_ADDR:
+			io.num=TBT00_1_S3_L1NAME
+			modbus_callback_ReadCoilStatus = io.state
+		case LN2_STATE_ADDR:
+			io.num=TBT00_1_S3_L2NAME
+			modbus_callback_ReadCoilStatus = io.state
+		case LN3_STATE_ADDR:
+			io.num=TBT00_1_S3_L3NAME
+			modbus_callback_ReadCoilStatus = io.state
+		case LN4_STATE_ADDR:
+			io.num=TBT00_1_S3_L4NAME
+			modbus_callback_ReadCoilStatus = io.state
+		case else:
+			modbus_callback_ReadCoilStatus = 0
+	end select
+end function
+
+sub modbus_callback_slave_reply(tcp_sock as byte, slave_id as byte, byref slave_reply as string)
+	dim bytes as byte(255) = slave_reply 
+	
+	sock.num = tcp_sock
+	
+	sys.debugprint("data from IP: " + sock.remoteip + "\n")
+	dim i as byte
+	for i = 1 to len(slave_reply)
+		sys.debugprint(str(asc(mid(slave_reply, i, 1))) + " ")
+	next i	
+	sys.debugprint("\n")
+'	dim j as byte 
+'	for j = 0 to len(slave_reply) - 1
+'		sys.debugprint(str(bytes(j)) + " ")
+'	next j
+'	sys.debugprint("\n")
+	recv_flag = true
+end sub
+
+sub transmitt_data(tcp_sock as byte)
+	dim data as string
+	data = ""
+	
+	dim transId as word = 1
+	dim protId as word = 0
+	dim modbusUnitId as byte = 1
+	
+	dim addr as word = 7520
+	dim cnt as word = 2
+	
+	data = data + chr(addr shr 8) + chr(addr and &hff)
+	data = data + chr(cnt shr 8) + chr(cnt and &hff)
+		
+	modbus_mastermode_tcp_send(tcp_sock, transId, protId, modbusUnitId, ReadInputRegisters, data)
+end sub

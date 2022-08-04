@@ -1,0 +1,252 @@
+include "global.tbh"
+
+
+dim modbus_mastermode_socks(MODBUS_MASTERMODE_SOCKS_MAX) as modbus_socket
+dim modbus_slavemode_socks(MODBUS_SLAVEMODE_SOCKS_MAX) as modbus_socket
+dim modbus_slaves_ip_list(MODBUS_SLAVES_COUNT) as string
+
+
+function modbus_init() as boolean
+	modbus_init = true
+	
+	'socks allocation for modbus slavemode
+	dim i as byte
+	for i = 0 to MODBUS_SLAVEMODE_SOCKS_MAX - 1
+		modbus_slavemode_socks(i).socket = sock_get("MBSM" + str(i))
+		'incoming connection setup
+		sock.num = modbus_slavemode_socks(i).socket
+		sock.protocol = PL_SOCK_PROTOCOL_TCP
+		sock.localportlist = "502"
+		sock.inconmode = PL_SOCK_INCONMODE_ANY_IP_ANY_PORT
+		sock.reconmode = PL_SOCK_RECONMODE_0
+		sock.allowedinterfaces = "NET"
+		sock.connectiontout = 6
+		sock.splittcppackets = YES
+'		sock.targetip = "192.168.1.5"
+				
+		'buffs allocation 
+		if sock.txbuffrq(3) <> 3 or sock.rxbuffrq(3) <> 3 then
+			modbus_init = false
+			exit function
+		end if
+		sys.buffalloc()
+	next i
+	
+'	'name socks for mastermode
+'	dim j as byte 
+'	for j = 0 to MODBUS_MASTERMODE_SOCKS_MAX - 1
+'		modbus_mastermode_socks(j).socket = sock_get("MBMM" + str(j))
+'	next j	
+'	'setting targets IPs
+'	modbus_slaves_ip_list(0) = "192.168.1.98"
+'	modbus_slaves_ip_list(1) = "192.168.1.102"
+'	modbus_slaves_ip_list(2) = "192.168.1.51"
+
+end function
+
+sub modbus_slavemode_tcp_recieve(byref data as string, tcp_sock as byte)
+	dim transId as word
+	dim protId as word 
+	dim length as word
+	dim modbusFunc as modbusFunctions
+	dim modbusStartRef as word
+	dim modbusCount as word
+	dim modbusVal as word
+	dim modbusUnitId as byte
+	dim modbus_str as string
+	
+	dim mbVal as byte
+		
+	'incorrect data!
+	if len(data) < 8 then exit sub 
+	
+	transId = asc(mid(data, 1, 1)) * 256 + asc(mid(data, 2, 1))
+	protId = asc(mid(data, 3, 1)) * 256 + asc(mid(data, 4, 1))
+	length = asc(mid(data, 5, 1)) * 256 + asc(mid(data, 6, 1))
+	
+	'incorrect protocol!
+	if protId <> 0 then exit sub
+	
+	
+	modbusUnitId = asc(mid(data, 7, 1))
+		
+	if modbusUnitId = MODBUS_UNIT_ID then
+		modbusFunc = asc(mid(data, 8, 1))
+		
+		select case modbusFunc 
+			case ReadCoilStatus:
+				'some code 
+				modbusStartRef = asc(mid(data, 9, 1)) * 256 + asc(mid(data, 10, 1))
+				modbusCount = asc(mid(data, 11, 1)) * 256 + asc(mid(data, 12, 1))
+				modbus_str = chr((modbusCount) and &hff)
+				mbVal = modbus_callback_ReadCoilStatus(modbusStartRef)
+				modbus_str = modbus_str + chr(mbVal and &hff)
+				modbus_tcp_send(tcp_sock, transId, protId, modbusUnitId, ReadCoilStatus, modbus_str)
+
+			case ReadDiscreteInputs:
+				'somde code
+			case ReadHoldingRegisters:				
+				'some code
+			case ReadInputRegisters:
+				modbusStartRef = asc(mid(data, 9, 1)) * 256 + asc(mid(data, 10, 1))
+				modbusCount = asc(mid(data, 11, 1)) * 256 + asc(mid(data, 12, 1))
+				modbus_str = chr((modbusCount*2) and &hff)
+				dim i as word				
+				for i = modbusStartRef to modbusStartRef + modbusCount - 1
+					if modbusCount = MODBUS_MASTERMODE_SOCKS_MAX and modbusStartRef = 13 then
+						sock.num = modbus_mastermode_socks(i - modbusStartRef).socket
+						modbusVal = sock.statesimple 
+						modbus_str = modbus_str + chr((modbusVal shr 8) and &hff) + chr(modbusVal and &hff)
+					else 
+						modbusVal = 15 
+						modbus_str = modbus_str + chr((modbusVal shr 8) and &hff) + chr(modbusVal and &hff)
+					end if
+				next i
+				modbus_tcp_send(tcp_sock, transId, protId, modbusUnitId, ReadInputRegisters, modbus_str)
+				
+			case WriteSingleCoil:
+				'correction test
+				if length = 6 and len(data) = 12 then 
+					modbusStartRef = asc(mid(data, 9, 1)) * 256 + asc(mid(data, 10, 1))
+					modbusVal = asc(mid(data, 11, 1)) * 256 + asc(mid(data, 12, 1))
+					'more correction test
+					if modbusStartRef >= 0 and modbusStartRef < NUM_OF_IO then 
+						if modbusVal = &hff00 then modbusVal = 1
+						if modbus_callback_WriteSingleCoil(modbusStartRef, modbusVal) = true then 
+							modbus_tcp_send(tcp_sock, transId, protId, modbusUnitId, WriteSingleCoil, mid(data, 9, 4))
+						end if
+					end if
+				end if
+				
+			case WriteSingleRegister:
+				'some code
+			case WriteMultipleCoils:
+				'some code
+			case WriteMultipleRegisters:
+				'some code
+		end select
+	end if	
+end sub
+
+sub modbus_mastermode_tcp_recieve(byref data as string, tcp_sock as byte)
+
+	beep.divider = 43000
+	beep.play("B", PL_BEEP_CANINT)
+	
+	dim transId as word
+	dim protId as word 
+	dim length as word
+	dim modbusFunc as modbusFunctions
+	dim modbusStartRef as word
+	dim modbusCount as word
+	dim modbusVal as word
+	dim modbusUnitId as byte
+	dim modbus_str as string
+	
+	if len(data) < 8 then exit sub
+		
+	transId = asc(mid(data, 1, 1)) * 256 + asc(mid(data, 2, 1))
+	protId = asc(mid(data, 3, 1)) * 256 + asc(mid(data, 4, 1))
+	
+	if protId <> 0 then exit sub
+				
+	length = asc(mid(data, 5, 1)) * 256 + asc(mid(data, 6, 1))
+	modbusUnitId = asc(mid(data, 7, 1))
+	modbusFunc = asc(mid(data, 8, 1))
+	modbus_str = mid(data, 9, 255)
+	
+	sys.debugprint("len: " + str(length) + " func: " + str(modbusFunc) + "\n")
+	
+	modbus_callback_slave_reply(tcp_sock, modbusUnitId, modbus_str)
+end sub
+
+sub modbus_tcp_send(tcp_sock as byte, transId as word, protId as word,  modbusUnitId as byte, modbusFunc as modbusFunctions,  byref data as string)
+	dim pack as string(8)
+	
+	pack = chr(transId shr 8) + chr(transId and &hff)
+	pack = pack + chr(protId shr 8) + chr(protId and &hff)
+	pack = pack + chr(0) + chr(len(data) + 2)
+	pack = pack + chr(modbusUnitId)
+	pack = pack + chr(modbusFunc)
+		
+	sock.num = tcp_sock
+	sock.setdata(pack)
+	sock.setdata(data)
+	sock.send()
+end sub
+
+sub modbus_mastermode_tcp_send(tcp_sock as byte, transId as word, protId as word, modbusUnitId as byte, modbusFunc as modbusFunctions, byref data as string)
+	dim pack as string 
+	dim length as word
+	length = len(data) + 2
+		
+	pack = chr(transId shr 8) + chr(transId and &hff)
+	pack = pack + chr(protId shr 8) + chr(protId and &hff)
+	pack = pack + chr(length shr 8) + chr(length and &hff)
+	pack = pack + chr(modbusUnitId)
+	pack = pack + chr(modbusFunc)
+	
+	sock.num = tcp_sock
+	sock.setdata(pack)
+	sock.setdata(data)
+	sock.send()
+end sub
+
+function outgoing_connect(tcp_sock as byte) as boolean
+	sock.num = tcp_sock
+	sock.protocol = PL_SOCK_PROTOCOL_TCP
+	sock.allowedinterfaces = "NET"
+	sock.targetinterface = PL_SOCK_INTERFACE_NET
+'	sock.reconmode = PL_SOCK_RECONMODE_2
+	sock.targetip = modbus_slaves_ip_list(tcp_sock - MODBUS_SLAVEMODE_SOCKS_MAX)
+	sock.targetport = 502
+	if sock.txbuffrq(1) <> 1 or sock.rxbuffrq(1) <> 1 then
+		outgoing_connect = false
+	end if
+	sys.buffalloc
+	sock.connect
+	dim time as word
+	time = sys.timercount
+	while sock.statesimple <> PL_SSTS_EST
+		doevents
+		if sys.timercount - time > TIMEOUT then
+			goto break_connect
+		end if
+	wend
+	doevents
+break_connect:
+	'sys.debugprint(str(sock.state) + "\n")
+	if sock.statesimple = PL_SSTS_EST then 
+		pat.play("G--G--G", PL_PAT_CANINT)
+		outgoing_connect = true
+	end if
+	if sock.statesimple <> PL_SSTS_EST then
+		pat.play("R--R--R", PL_PAT_CANINT)
+		outgoing_connect = false
+	end if
+
+end function
+
+function outgoing_close(tcp_sock as byte) as boolean
+	sock.num = tcp_sock
+	sock.close
+	dim time as word
+	time = sys.timercount
+	while sock.statesimple <> PL_SSTS_CLOSED
+		doevents
+		if sys.timercount - time > TIMEOUT then
+			goto break_close
+		end if
+	wend
+	doevents 
+break_close:
+	'sys.debugprint(str(sock.state) + "\n")
+	if sock.statesimple = PL_SSTS_CLOSED then 
+		pat.play("G--G--G", PL_PAT_CANINT)
+		outgoing_close = true
+	end if
+	if sock.statesimple <> PL_SSTS_CLOSED then
+		pat.play("R--R--R", PL_PAT_CANINT)
+		outgoing_close = false
+	end if
+end function

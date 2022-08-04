@@ -1,0 +1,37 @@
+'CONSTANTS
+type modbus_socket 
+	socket as byte 
+end type
+
+enum modbusFunctions 
+	ReadCoilStatus = 1, 
+	ReadDiscreteInputs = 2,
+	ReadHoldingRegisters = 3,
+	ReadInputRegisters = 4, 
+	
+	WriteSingleCoil = 5,
+	WriteSingleRegister = 6,
+	WriteMultipleCoils = 15
+	WriteMultipleRegisters = 16
+end enum
+
+'DECLARATIONS 
+'socks
+declare modbus_mastermode_socks(MODBUS_MASTERMODE_SOCKS_MAX) as modbus_socket
+declare modbus_slavemode_socks(MODBUS_SLAVEMODE_SOCKS_MAX) as modbus_socket
+'slaves-ip list 
+declare modbus_slaves_ip_list(MODBUS_SLAVES_COUNT) as string
+'functions 
+declare function modbus_init() as boolean
+declare sub modbus_mastermode_tcp_recieve(byref data as string, tcp_sock as byte)
+declare sub modbus_slavemode_tcp_recieve(byref data as string, tcp_sock as byte)
+declare sub modbus_tcp_send(tcp_sock as byte, trans_id as word, prot_id as word, 
+							unit_id as byte, modbus_func as modbusFunctions, 
+							byref data as string)
+declare sub modbus_mastermode_tcp_send(tcp_sock as byte, trans_id as word, prot_id as word,
+							unit_id as byte, modbus_func as modbusFunctions,
+							byref data as string)
+							
+declare function outgoing_connect(tcp_sock as byte) as boolean
+declare function outgoing_close(tcp_sock as byte) as boolean
+declare sub transmitt_data(tcp_sock as byte)

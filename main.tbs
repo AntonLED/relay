@@ -1,0 +1,78 @@
+include "global.tbh"
+
+
+dim global_flag as boolean = true
+dim global_counter as byte = 0
+dim recv_flag as boolean = false
+dim cur_slave_num as byte = 0
+
+dim tcp_pack_len as word
+
+sub on_sys_init()
+	boot()
+end sub
+
+sub on_sock_tcp_packet_arrival(length as word)
+	tcp_pack_len = length
+end sub
+
+'sub on_sys_timer()
+'	if global_flag = true then
+'		sock.num = modbus_mastermode_socks(cur_slave_num).socket
+
+'		if recv_flag = false then
+'			if sock.statesimple <> PL_SSTS_EST then 
+'				if outgoing_connect(sock.num) = false then
+'					sys.debugprint("loooose\n")
+'					sys.debugprint(sock.targetip + "\n")
+'					cur_slave_num = cur_slave_num + 1
+'				else 
+'					sys.debugprint("connect!!\n")
+'				end if
+'			end if
+'			if sock.statesimple = PL_SSTS_EST then
+'				transmitt_data(sock.num)
+'			end if
+'		end if
+'		if recv_flag = true then
+'			recv_flag = false
+'			outgoing_close(sock.num)
+'			cur_slave_num = cur_slave_num + 1
+'		end if
+		
+'		if cur_slave_num = MODBUS_SLAVES_COUNT then
+'			cur_slave_num = 0
+'			global_flag = false
+'		end if
+'	end if
+	
+'	if global_flag = false then
+'		global_counter = global_counter + 1
+'		if global_counter = TIMEOUT then
+'			global_counter = 0
+'			global_flag = true
+'		end if
+'	end if
+
+'	sys.debugprint("--------------------\n")
+'end sub
+
+sub on_sock_data_arrival()
+	dim data as string
+				
+	dim f as byte
+	for f = 0 to MODBUS_SLAVEMODE_SOCKS_MAX - 1
+		if sock.num = modbus_slavemode_socks(f).socket then
+			data = sock.getdata(tcp_pack_len )
+			tcp_pack_len = 0
+			modbus_slavemode_tcp_recieve(data, sock.num)
+		end if
+	next f
+	sys.debugprint("\n")
+	
+'	if sock.num = modbus_mastermode_socks(cur_slave_num).socket then 
+'		data = sock.getdata(255)
+'		modbus_mastermode_tcp_recieve(data, sock.num)
+'	end if
+
+end sub

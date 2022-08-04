@@ -1,0 +1,40 @@
+include "global.tbh"
+
+
+
+sub boot()
+	'net setup
+	dim device_net_ip as string
+	dim device_net_mask as string
+	dim device_net_gateway as string
+	device_net_ip = "192.168.1.213"
+	device_net_mask = "255.255.255.0"
+	device_net_gateway = "0.0.0.0"
+		
+	net.ip = device_net_ip
+	net.netmask = device_net_mask
+	net.gatewayip = device_net_gateway
+	
+	'setup tibbits
+	'TBT01 setup on socket #1 
+	io.num = TBT00_1_S3_L1NAME
+	io.enabled = YES
+	io.state = val(stor.getdata(LN1_E_ADDR, 1))
+	io.num = TBT00_1_S3_L2NAME
+	io.enabled = YES
+	io.state = val(stor.getdata(LN2_E_ADDR, 1))
+	io.num = TBT00_1_S3_L3NAME
+	io.enabled = YES
+	io.state = val(stor.getdata(LN3_E_ADDR, 1))
+	io.num = TBT00_1_S3_L4NAME
+	io.enabled = YES
+	io.state = val(stor.getdata(LN4_E_ADDR, 1))
+	
+	'modbus init
+	if modbus_init() = true then
+		pat.play("G-G-G-", PL_PAT_CANINT)
+	else 
+		pat.play("R-R-R-", PL_PAT_CANINT)
+	end if
+	
+end sub

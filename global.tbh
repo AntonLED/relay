@@ -1,0 +1,58 @@
+'DEFINES-------------------------------------------------------------
+'Setup tibbit 01
+const TBT00_1_S3_L1NAME = PL_IO_NUM_32
+const TBT00_1_S3_L2NAME = PL_IO_NUM_33
+const TBT00_1_S3_L3NAME = PL_IO_NUM_4
+const TBT00_1_S3_L4NAME = PL_IO_NUM_20_INT4
+'Setup tibbit 05
+const SER_TBT05_S5 = 1
+const TBT05_S5_TX = PL_IO_NUM_11_TX1
+const TBT05_S5_RX = PL_IO_NUM_10_RX1
+'setup modbus-slave-mode addresses
+const LN1_ADDR = 1
+const LN2_ADDR = 2
+const LN3_ADDR = 3
+const LN4_ADDR = 4
+const LN1_LN2_ADDR = 5
+
+const LN1_STATE_ADDR = 1
+const LN2_STATE_ADDR = 2
+const LN3_STATE_ADDR = 3
+const LN4_STATE_ADDR = 4
+'setup EEPROM addresses
+const LN1_E_ADDR = 1
+const LN2_E_ADDR = 2
+const LN3_E_ADDR = 3
+const LN4_E_ADDR = 4
+'setup platform settings for modbus 
+#define MODBUS_MASTERMODE_SOCKS_MAX 3
+#define MODBUS_SLAVEMODE_SOCKS_MAX 7
+#define NUM_OF_IO 49
+#define MODBUS_SLAVES_COUNT 3
+#define MODBUS_UNIT_ID 5
+
+#define TIMEOUT 20
+
+'INCLUDES------------------------------------------------------------
+include "sock\trunk\sock.tbh"
+include "modbus.tbh"
+
+'DECLARATIONS--------------------------------------------------------
+declare global_flag as boolean
+declare global_counter as byte
+declare recv_flag as boolean
+declare cur_slave_num as byte
+
+declare temp1 as float 
+declare temp2 as float 
+declare temp3 as float 
+'network settings 
+declare device_net_ip as string
+declare device_net_mask as string
+declare deivice_net_gateway as string
+'declare functions 
+declare sub boot()
+declare sub modbus_callback_slave_reply(tcp_sock as byte, slave_id as byte, byref slave_reply as string)
+declare function modbus_callback_WriteSingleCoil(address as word, value as low_high) as boolean
+declare function modbus_callback_ReadCoilStatus(address as word) as byte
+declare function float32_to_dec(byref data as string) as float
